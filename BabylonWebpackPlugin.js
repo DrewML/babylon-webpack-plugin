@@ -1,12 +1,25 @@
 const assert = require('assert');
 const babylon = require('babylon');
 const { resolve } = require('path');
-const createASTProxy = require('./ast-proxy');
+const createASTProxy = require('lazy-babylon-to-estree');
 
 class BabylonWebpackPlugin {
     constructor(webpackRootEntry) {
         const Parser = require(resolve(webpackRootEntry, '../Parser'));
         Parser.prototype.parse = babylonParse;
+
+        let { ECMA_VERSION } = Parser;
+        Object.defineProperty(Parser, 'ECMA_VERSION', {
+            get() {
+                return ECMA_VERSION;
+            },
+            set(value) {
+                console.warn(
+                    'Warning: Setting "Parser.ECMA_VERSION" is a no-op when using BabylonWebpackPlugin'
+                );
+                ECMA_VERSION = value;
+            }
+        });
     }
 
     apply() {}
@@ -25,43 +38,53 @@ BabylonWebpackPlugin.transformBabelOpts = (opts = {}) => {
     });
 };
 
+// Lots of copy-pasted webpack code lies ahead...
 function babylonParse(source, initialState) {
     let ast;
     const comments = [];
+    if (typeof source === 'object' && source !== null) {
+        ast = source;
+        comments = source.comments;
+    }
 
-    try {
-        ast = babylon.parse(source, {
-            ranges: true,
-            plugins: ['dynamicImport'],
-            sourceType: 'module'
-        });
-    } catch (err) {}
+    if (!ast) {
+        try {
+            ast = babylon.parse(source, {
+                ranges: true,
+                plugins: ['dynamicImport'],
+                sourceType: 'module'
+            });
+        } catch (err) {}
 
-    try {
-        ast = babylon.parse(source, {
-            ranges: true,
-            plugins: ['dynamicImport'],
-            sourceType: 'script'
-        });
-    } catch (err) {}
-
-    if (ast) ast.body = ast.program.body;
+        try {
+            ast = babylon.parse(source, {
+                ranges: true,
+                plugins: ['dynamicImport'],
+                sourceType: 'script'
+            });
+        } catch (err) {}
+    }
 
     if (!ast || typeof ast !== 'object')
         throw new Error("Source couldn't be parsed");
 
+    const oldComments = this.comments;
+    // TODO: move this range copying to lazy-babylon-to-estree
+    this.comments = ast.comments.map(
+        node => ((node.range = [node.start, node.end]), node)
+    );
+
     ast = createASTProxy(ast);
     const oldScope = this.scope;
     const oldState = this.state;
-    const oldComments = this.comments;
+    const { StackedSetMap } = Object.getPrototypeOf(this).constructor; // Yes, this is gross. Sorry ❤️
     this.scope = {
         inTry: false,
-        definitions: [],
-        renames: {}
+        definitions: new StackedSetMap(),
+        renames: new StackedSetMap()
     };
     const state = (this.state = initialState || {});
-    this.comments = comments;
-    if (this.applyPluginsBailResult('program', ast, comments) === undefined) {
+    if (this.hooks.program.call(ast, comments) === undefined) {
         this.prewalkStatements(ast.body);
         this.walkStatements(ast.body);
     }

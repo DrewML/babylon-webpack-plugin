@@ -1,5 +1,5 @@
 console.log('wat');
 
-import('./a').then(mod => {
+import(/* webpackChunkName: "templates" */ './a').then(mod => {
     console.log(mod);
 });

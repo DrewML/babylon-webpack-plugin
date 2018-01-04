@@ -4,7 +4,7 @@
   "description": "Use Babylon as webpack's parser, and avoid a double parse when using babel-loader",
   "main": "BabylonWebpackPlugin.js",
   "scripts": {
-    "example": "webpack --config example-project/webpack.config.js"
+    "example": "rm -rf example-project/dist && webpack --config example-project/webpack.config.js"
   },
   "keywords": [
     "webpack",
@@ -15,9 +15,11 @@
   "author": "Andrew Levine",
   "license": "MIT",
   "dependencies": {
-    "babylon": "^7.0.0-beta.36"
+    "babylon": "^7.0.0-beta.36",
+    "lazy-babylon-to-estree": "^1.0.0"
   },
   "devDependencies": {
-    "webpack": "^3.10.0"
+    "webpack": "^4.0.0-alpha.2",
+    "webpack-cli": "^2.0.1"
   }
 }
