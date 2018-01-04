@@ -16,11 +16,7 @@ module.exports = {
                 test: /\.js$/,
                 use: {
                     loader: 'babel-loader',
-                    options: BabylonWebpackPlugin.transformBabelOpts({
-                        parserOpts: {
-                            plugins: ['dynamicImport']
-                        }
-                    })
+                    options: BabylonWebpackPlugin.createOpts()
                 }
             }
         ]

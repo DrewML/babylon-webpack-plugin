@@ -25,16 +25,23 @@ class BabylonWebpackPlugin {
     apply() {}
 }
 
-BabylonWebpackPlugin.transformBabelOpts = (opts = {}) => {
+BabylonWebpackPlugin.createOpts = (opts = {}) => {
     assert(
         !(opts.parserOpts && opts.parserOpts.parser),
         'You cannot specify a `parser` to override `BabylonWebpackPlugin`'
     );
 
+    const plugins = [
+        ...((opts.parserOpts && opts.parserOpts.plugins) || []),
+        'dynamicImport'
+    ];
     return Object.assign({}, opts, {
         parserOpts: opts.parserOpts
-            ? Object.assign({}, opts.parserOpts, { parser: babylon.parse })
-            : { parser: babylon.parse }
+            ? Object.assign({}, opts.parserOpts, {
+                  parser: babylon.parse,
+                  plugins
+              })
+            : { parser: babylon.parse, plugins }
     });
 };
 
@@ -69,12 +76,8 @@ function babylonParse(source, initialState) {
         throw new Error("Source couldn't be parsed");
 
     const oldComments = this.comments;
-    // TODO: move this range copying to lazy-babylon-to-estree
-    this.comments = ast.comments.map(
-        node => ((node.range = [node.start, node.end]), node)
-    );
-
     ast = createASTProxy(ast);
+    this.comments = ast.comments;
     const oldScope = this.scope;
     const oldState = this.state;
     const { StackedSetMap } = Object.getPrototypeOf(this).constructor; // Yes, this is gross. Sorry ❤️
